@@ -127,7 +127,25 @@ func Cost(hashedPassword []byte) (int, error) {
 	return p.cost, nil
 }
 
+func GenerateFromPasswordAndSalt(password []byte, cost int, salt []byte) ([]byte, error) {
+	p, err := newFromPasswordAndSalt(password, cost, salt)
+	if err != nil {
+		return nil, err
+	}
+	return p.Hash(), nil
+}
+
 func newFromPassword(password []byte, cost int) (*hashed, error) {
+	unencodedSalt := make([]byte, maxSaltSize)
+	_, err := io.ReadFull(rand.Reader, unencodedSalt)
+	if err != nil {
+		return nil, err
+	}
+
+	return newFromPasswordAndSalt(password, cost, unencodedSalt)
+}
+
+func newFromPasswordAndSalt(password []byte, cost int, salt []byte) (*hashed, error) {
 	if cost < MinCost {
 		cost = DefaultCost
 	}
@@ -141,13 +159,7 @@ func newFromPassword(password []byte, cost int) (*hashed, error) {
 	}
 	p.cost = cost
 
-	unencodedSalt := make([]byte, maxSaltSize)
-	_, err = io.ReadFull(rand.Reader, unencodedSalt)
-	if err != nil {
-		return nil, err
-	}
-
-	p.salt = base64Encode(unencodedSalt)
+	p.salt = base64Encode(salt)
 	hash, err := bcrypt(password, p.cost, p.salt)
 	if err != nil {
 		return nil, err
